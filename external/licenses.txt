@@ -1,0 +1,3 @@
+External libraries included in this software so far:
+	LSD: 	BSD License, Line Segment Detector (Ported from OpenCV 3.0 alpha)
+	Swirski:MIT, Pupil detector (used as an iris detector in this software)
