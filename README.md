@@ -57,8 +57,15 @@ The former is slightly modified (PupilTracker.cpp) and the latter is editted so 
 >> main.exe [image file]
 ```
 
-## Known issues
-Debug build crashes with an error related to TBB used in the iris detector.
+## Limitations
+- Debug build crashes with an error related to TBB used in the iris detector.
+- The code is not optimized, thus not real-time capable, yet
+- The tracking is unstable for light-color eyes
+
+## Note
+- The algorithm returns *two* possible eye positions, so we need a postprocessing to determine the right one. Our work in the reference introduces a disambiguation method
+- Our coodinate system is *right-handed* and the image origin is assumed to be *top-left*. In other words, we follow the OpenGL convention, not OpenCV.
+
 
 ## Reference:
 Please refer to the following publication, which explaines the detail of the algorithm with a code table:
