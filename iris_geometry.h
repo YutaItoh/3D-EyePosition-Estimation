@@ -21,7 +21,7 @@
 //#include "tracker_log.h"
 
 #if 1
-  /// #define DEBUG_RANSAC
+  #define DEBUG_RANSAC
   #define DEBUG_IRIS_POSE
   ///#define DEBUG_FITELLIPSESUB
 #endif
@@ -265,7 +265,7 @@ template <class  T>
 		if( kSrcNum < kNum) return false;
 
 		/// Decide max iteration # so that it achieves a certain success rate
-		const double kInlierProb = 0.6; /// Inlier probability
+		const double kInlierProb = 0.5; /// Inlier probability
 		const double kTargetProb = 0.001; /// Expected failure probablity
 		const int kMaxIteration = (int)( log(kTargetProb)/log(1.0-pow(kInlierProb,(int)kNum)) );
 
@@ -314,6 +314,7 @@ template <class  T>
 			///				const double current_score;
 			CountInliers(points, inlier_count, inlier_indice, src_dx, src_dy);
 			/// if it gives largest number of inliers
+///			DrawEllipse(tmp);
 			if( best_inlier_count < inlier_count){
 				///				if( best_score < current_score){
 				/// remember the new inliers
@@ -389,7 +390,12 @@ template <class T>
 		const cv::Mat &src_dx, const cv::Mat &src_dy ){
 		double score=0.0;
 ///		const double kInlierThreashold= pow(1.5,2);
-		const double kThresh = (src_dx.rows+src_dx.cols)/2/50; /// heuristic
+#if 0
+		double min_image_size = (src_dx.rows>src_dx.cols)? src_dx.cols : src_dx.rows;
+		const double kThresh = min_image_size*0.02; ///[pixel] heuristic value 
+#else
+		const double kThresh = (src_dx.rows+src_dx.cols)/2/50; ///[pixel] heuristic value 
+#endif
 		const double kInlierThreashold= pow(kThresh,2);
 		inlier_count=0;
 		inlier_indice.clear();
@@ -398,6 +404,7 @@ template <class T>
 #ifdef DEBUG_RANSAC
 		cv::Mat tmp;
 		cv::cvtColor(src_dx,tmp,CV_GRAY2BGR);
+		///std::cout<<"Start: CountInliers"<<std::endl;
 #endif // DEBUG_RANSAC
 		for( size_t i=0; i<points.size(); i++ ){
 			if( points[i].x<0 || points[i].x>=src_dx.cols ||
@@ -407,12 +414,14 @@ template <class T>
 #else
 			const double d = DistanceSimpleSquared(points[i].x,points[i].y);
 #endif
-
-			bool is_inlier = false;
-			is_inlier = d < kInlierThreashold;
+			
+			bool is_inlier_close_to_ellipse = false;
+			bool is_inlier_grad_reliable = false;
+			bool is_point_inside_ellipse_and_reliable = false;
+			is_inlier_close_to_ellipse = d < kInlierThreashold;
 
 #if 1 /// with a gradient filtering assuming iris color is darker than sclera
-			if ( is_inlier ){
+			if ( is_inlier_close_to_ellipse ){
 				dx0 = src_dx.at<float>( (int)points[i].y,(int)points[i].x);
 				dy0 = src_dy.at<float>( (int)points[i].y,(int)points[i].x);/// ToDo subsampling?
 				ComputeEllipseGradient(points[i].x,points[i].y, dx, dy);
@@ -429,20 +438,35 @@ template <class T>
 					cv::Point(points[i].x, points[i].y),
 					cv::Point(points[i].x+dx/d*kGradScale, points[i].y+dy/d*kGradScale),
 					cv::Scalar(0,255,0), 1, CV_AA);
-				std::cout << "score " << acos(score)/M_PI*180.0<< std::endl;
+				///std::cout << "score " << acos(score)/M_PI*180.0<< std::endl;
 #endif // DEBUG_RANSAC
-				is_inlier = acos(score) < 10.0/180.0*M_PI;
+				is_inlier_grad_reliable = acos(score) < 10.0/180.0*M_PI;
+			}else if(true){
+				/// check if a gradient vector is not heading to the image center
+				const double kThreshold_rad = 2.0/180*M_PI;
+				dx0 = src_dx.at<float>( (int)points[i].y,(int)points[i].x);
+				dy0 = src_dy.at<float>( (int)points[i].y,(int)points[i].x);/// ToDo subsampling?
+				const double tmp_x = points[i].x-dx_;
+				const double tmp_y = points[i].y-dy_;
+				const double inner_prod_val = tmp_x*dx0 + tmp_y*dy0;
+				const double d_norm   = sqrt(dx0*dx0+dy0*dy0);
+				const double tmp_norm = sqrt(tmp_x*tmp_x+tmp_y*tmp_y);
+				const double angle_rad = acos(inner_prod_val/(d_norm*tmp_norm));
+				if( abs(angle_rad)<kThreshold_rad) is_point_inside_ellipse_and_reliable=true;
 			}
 #endif /// without a gradient filtering
 
 
-			if ( is_inlier ){
+			if ( is_inlier_grad_reliable ){
 				inlier_count++;
 				inlier_indice.push_back(i);
+			}else if(is_point_inside_ellipse_and_reliable){
+				inlier_count++;
 			}
 		}
 #ifdef DEBUG_RANSAC
 		cv::imshow("Ellipse Gradient",tmp);
+		///std::cout<<"End: CountInliers"<<std::endl;
 #endif // DEBUG_RANSAC
 		if(inlier_count==0) return 0.0;
 		return inlier_count;

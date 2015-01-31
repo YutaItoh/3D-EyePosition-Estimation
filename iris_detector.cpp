@@ -16,8 +16,8 @@
  #define DEBUG_PREPROCESSING
  #define DEBUG_FIND_IRIS
 /// #define TEST_INT_EDGES
-/// #define REFINE_DEBUG
-/// #define DEBUG_LSD
+ #define REFINE_DEBUG
+ #define DEBUG_LSD
 #endif
 
 // #define ADD_EDGE_BY_PUPIL_TRACKER
@@ -28,6 +28,7 @@
 #include "lsd_opencv3.h"
 #endif // USE_OLD_LSD
 #include "iris_detector.h"
+#include "iris_geometry.h"
 
 
 /// Taken from Leszek-pupil-tracker ///
@@ -252,6 +253,27 @@ void IrisDetector::RegisterImage( const cv::Mat &src_img ){
 #else
 	cvtColor( src_img_, src_gray_, CV_BGR2GRAY );
 	cv::equalizeHist( src_gray_, src_gray_);
+
+#if 0 // Remove highlight
+	cv::Scalar meanVal = cv::mean( src_gray_ ); // costly...
+	meanVal *=1.5;
+	if(meanVal.val[0]>255.0) meanVal.val[0] = 230;
+	const uchar kThreshold=(uchar) meanVal.val[0];
+//	cv::threshold(mEye,mEye,230,255,cv::THRESH_TOZERO_INV);
+	for(int r=0;r<src_gray_.rows;r++){
+		uchar fill_color = src_gray_.at<uchar>(r,0);
+		if(fill_color>kThreshold) fill_color=kThreshold;
+		for(int c=0;c<src_gray_.cols;c++){
+			if(src_gray_.at<uchar>(r,c)>kThreshold){
+				src_gray_.at<uchar>(r,c)=fill_color;
+			}else{
+				fill_color=src_gray_.at<uchar>(r,c);
+			}
+		}
+	}
+	cv::imshow("Gray",src_gray_);
+#endif
+
 #endif
 
 #ifdef DEBUG_PREPROCESSING
@@ -397,20 +419,33 @@ void IrisDetector::RefineEdgeList(const EdgeList &src, EdgeListF &dst){
 		cv::circle(img, src[i]*kImageScale, 1*kImageScale, cv::Scalar(0,0,200), 1, 4);
 	}
 #endif
+	const double img_center_x = src_img_.cols/2.0;
+	const double img_center_y = src_img_.rows/2.0;
+
 	int valid_id = 0;
 	dst.resize(src.size());
 	const float kSearchPixelRange=src_img_.rows/120.0f;
+	const double kThreshold_rad = 25.0/180*M_PI;
 	for( size_t i=0; i<src.size(); i++){
 		const int x=src[i].x;  
 		const int y=src[i].y;
 		const float dx=src_sobel_x_.at<float>(y,x);
 		const float dy=src_sobel_y_.at<float>(y,x);
 
+		/// check if a gradient vector is not heading to the image center
+		const double tmp_x = x-img_center_x;
+		const double tmp_y = y-img_center_y;
+		const double inner_prod_val = tmp_x*dx + tmp_y*dy;
+		const double d_norm   = sqrt(dx*dx+dy*dy);
+		const double tmp_norm = sqrt(tmp_x*tmp_x+tmp_y*tmp_y);
+		const double angle_rad = acos(inner_prod_val/(d_norm*tmp_norm));
+		if( abs(angle_rad)>kThreshold_rad) continue;
+
 		/// remove a point with a high y-axis gradient since it can be an eye lid region
 		if( abs(dx)<1e-10 || abs(dy/dx)>0.8 ) continue; 
 //		if( abs(dx)<1e-10 || abs(dy/dx)>1.3 ) continue; 
 
-		const float dn=1.0f/sqrt(dx*dx+dy*dy)*kSearchPixelRange;
+		const float dn=1.0f/d_norm*kSearchPixelRange;
 		const int kSampleNum=3;
 		Eigen::MatrixXf X(3,2*kSampleNum+1);
 		Eigen::MatrixXf Y(2*kSampleNum+1,1);
@@ -418,8 +453,11 @@ void IrisDetector::RefineEdgeList(const EdgeList &src, EdgeListF &dst){
 		cv::Point ps(kImageScale*((float)x + dx*(-kSampleNum)*dn),kImageScale*((float)y + dy*(-kSampleNum)*dn));
 		cv::Point pe(kImageScale*((float)x + dx*( kSampleNum)*dn),kImageScale*((float)y + dy*( kSampleNum)*dn));
 		cv::line(img, ps, pe, cv::Scalar(0,0,200), 1, 4);
+		cv::circle(img, ps, 1*kImageScale, cv::Scalar(0,200,0), 1, 4);
+		cv::circle(img, pe, 1*kImageScale, cv::Scalar(200,0,200), 1, 4);
 		double val_sum = 0.0;
 #endif
+		/// 
 		for(int k=-kSampleNum;k<=kSampleNum;k++){
 			const float xf=(float)x + dx*k*dn;
 			const float yf=(float)y + dy*k*dn;
@@ -434,8 +472,10 @@ void IrisDetector::RefineEdgeList(const EdgeList &src, EdgeListF &dst){
 			val_sum += Y(k+kSampleNum,0);
 			const int xx = kImageScale*xf;
 			const int yy = kImageScale*yf;
-			if(xx>=0&&xx<img.cols&&yy>=0&&yy<img.rows)img.at<cv::Vec3b>(yy,xx)=cv::Vec3b(0,255,0);
-			std::cout<< k <<" "<<valx<<std::endl;
+
+			if(xx>=0&&xx<img.cols&&yy>=0&&yy<img.rows){
+				std::cout<< k <<" "<<valx<<std::endl;
+			}
 #endif
 		}
 		
@@ -461,8 +501,8 @@ void IrisDetector::RefineEdgeList(const EdgeList &src, EdgeListF &dst){
 #ifdef REFINE_DEBUG
 		cv::circle(img, cv::Point(x_new*kImageScale,y_new*kImageScale),
 			1*kImageScale, cv::Scalar(0,200,0), 1, 4);
-		cv::imshow("RefineEsgeList",img);
-		cv::waitKey(-1);
+		//cv::imshow("RefineEsgeList",img);
+		//cv::waitKey(-1);
 #endif
 		if(1){
 			dst[valid_id].x = x_new;
@@ -473,7 +513,11 @@ void IrisDetector::RefineEdgeList(const EdgeList &src, EdgeListF &dst){
 		
 	}
 	dst.resize(valid_id);
-
+	
+#ifdef REFINE_DEBUG
+		cv::imshow("RefineEsgeList",img);
+		cv::waitKey(-1);
+#endif
 }
 
 
@@ -531,7 +575,7 @@ bool IrisDetector::FindLimbus( const cv::Mat &src_img, const cv::Point2f &iris_p
 		cand_num = edge_lists_float.size();;
 #endif /// Add edges found by PupilTracker.cpp
 
-#ifdef RANSAC_DEBUG
+#ifdef DEBUG_RANSAC
 		ellipse_.SetDebugMat(src_img_);
 #endif // RANSAC_DEBUG
 #ifdef TEST_INT_EDGES
@@ -540,6 +584,9 @@ bool IrisDetector::FindLimbus( const cv::Mat &src_img, const cv::Point2f &iris_p
 #ifdef DEBUG_FIND_IRIS
 		///		cv::imwrite("cand0.png",img_with_best_ellipse);
 #endif //  DEBUG_FIND_IRIS
+
+//#define USE_EDGE_PAIRS
+#ifdef USE_EDGE_PAIRS // Edge pairs
 		int best_i = -2;
 		int best_j = -1;
 		int best_inlier_num = 0;
@@ -580,7 +627,7 @@ bool IrisDetector::FindLimbus( const cv::Mat &src_img, const cv::Point2f &iris_p
 #ifdef DEBUG_FIND_IRIS
 				ellipse_.DrawEllipseManual(src_with_ellipses,0.0);
 #endif //  DEBUG_FIND_IRIS
-				/// Remove outliers as much as possible, using so many heuristics, though
+				/// Remove outliers as much as possible, we use many heuristics, though
 				const int kIrisCenterDiff =  static_cast<int>(
 					(ellipse_.x()-kHaarIrisCenterX)*(ellipse_.x()-kHaarIrisCenterX) 
 					+(ellipse_.y()-kHaarIrisCenterY)*(ellipse_.y()-kHaarIrisCenterY)
@@ -606,13 +653,6 @@ bool IrisDetector::FindLimbus( const cv::Mat &src_img, const cv::Point2f &iris_p
 			}
 		}
 
-#ifdef DEBUG_FIND_IRIS
-		imshow("EllipsesFloat",src_with_ellipses);
-#endif // DEBUG_FIND_IRIS
-#ifdef  TEST_INT_EDGES
-		imshow("EllipsesInt",src_with_ellipses2);
-#endif // TEST_INT_EDGES
-
 
 		if(best_i==-2){
 			return false;
@@ -623,6 +663,43 @@ bool IrisDetector::FindLimbus( const cv::Mat &src_img, const cv::Point2f &iris_p
 		}else{
 			ellipse_.FitEllipse( edge_lists_float[best_i], edge_lists_float[best_j], src_sobel_x_, src_sobel_y_ );
 		}
+#endif // USE_EDGE_PAIRS
+		/// Use all edge points
+		size_t egde_list_total = 0;
+		for( size_t i=0; i<edge_lists_float.size(); i++){
+			egde_list_total+=edge_lists_float[i].size();
+		}
+		size_t k=0;
+		EdgeListF edge_lists_float_all(egde_list_total);
+		for( size_t i=0; i<edge_lists_float.size(); i++){
+			for( size_t j=0; j<edge_lists_float[i].size(); j++){
+				edge_lists_float_all[k].x=edge_lists_float[i][j].x;
+				edge_lists_float_all[k].y=edge_lists_float[i][j].y;
+				k++;
+			}
+		}
+		cv::Vec3b tmp;
+		tmp[1]=255;
+		for( size_t i=0; i<edge_lists_float_all.size(); i++){
+			const cv::Point2f &vec=edge_lists_float_all[i];
+			const int x = vec.x;
+			const int y = vec.y;
+			if( 0<=x && x<src_with_ellipses.cols && 0<=y && x<src_with_ellipses.rows ){
+				src_with_ellipses.at<cv::Vec3b>(y,x)=tmp;
+			}
+		}
+		std::cout<<"Start: ellipse_.FitEllipse( edge_lists_float_all, src_sobel_x_, src_sobel_y_ );"<<std::endl;
+		ellipse_.FitEllipse( edge_lists_float_all, src_sobel_x_, src_sobel_y_ );
+		std::cout<<"End: ellipse_.FitEllipse( edge_lists_float_all, src_sobel_x_, src_sobel_y_ );"<<std::endl;
+		ellipse_.DrawEllipseManual(src_with_ellipses,0.77);
+		
+
+#ifdef DEBUG_FIND_IRIS
+		imshow("EllipsesFloat",src_with_ellipses);
+#endif // DEBUG_FIND_IRIS
+#ifdef  TEST_INT_EDGES
+		imshow("EllipsesInt",src_with_ellipses2);
+#endif // TEST_INT_EDGES
 
 #if 0
 		const double kB=ellipse_.a(); /// 'a' is intended
@@ -687,6 +764,8 @@ bool IrisDetector::FindLimbus( const cv::Mat &src_img, const cv::Point2f &iris_p
 		cv::putText(img_with_best_ellipse, 
 			ss.str(), cv::Point(10,120), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,200,0), 1, CV_AA);		
 #endif
+
+#ifdef USE_EDGE_PAIRS
 //		std::ofstream xy_ofs("detected_iris_uv.txt");
 		if( best_i== -1) {
 			// Do nothing
@@ -713,7 +792,7 @@ bool IrisDetector::FindLimbus( const cv::Mat &src_img, const cv::Point2f &iris_p
 			}
 		}
 		//		cv::imwrite("cand1.png",img_with_best_ellipse);
-
+#endif // USE_EDGE_PAIRS
 		frame++;
 #endif // DEBUG_FIND_IRIS
 
@@ -770,9 +849,10 @@ void IrisDetector::ExtractEdgesByLSD(const cv::Point2f &iris_position_in_roi0){
   /* LSD parameters */
   double scale = 0.6;       /* Scale the image by Gaussian filter to 'scale'. */
   scale = 1.5;//1.2;
+//  scale = 2.5;//1.2;
   double sigma_scale = 0.6; /* Sigma for Gaussian filter is computed as
                                 sigma = sigma_scale/scale.                    */
-sigma_scale = 1.3	;//1.7;//1.2; /// higher this value, more sensitively detetects edge segments
+  sigma_scale = 1.3	;//1.7;//1.2; /// higher this value, more sensitively detetects edge segments
   double quant = 2.0;       /* Bound to the quantization error on the
                                 gradient norm.                                */
   double ang_th = 22.5;     /* Gradient angle tolerance in degrees.           */
@@ -783,7 +863,7 @@ sigma_scale = 1.3	;//1.7;//1.2; /// higher this value, more sensitively detetect
   
 	cv::LineSegmentDetectorImpl lsd_imp(cv::LSD_REFINE_STD, scale, sigma_scale, quant, ang_th, log_eps, density_th, n_bins);
 
-	const double kAngleThreshold = M_PI/9.0;/// ignore edges their angle is less than this
+	const double kAngleThreshold = M_PI/4.0;//9/// ignore edges their angle is less than this
 	const int kEdgeSamplingNum = 10;
 	Eigen::Vector2d iris_position_in_roi(iris_position_in_roi0.x,iris_position_in_roi0.y);
 	cv::Mat img = src_gray_.clone();
@@ -939,7 +1019,7 @@ sigma_scale = 1.3	;//1.7;//1.2; /// higher this value, more sensitively detetect
 				const cv::Scalar outer_iris_sum = cv::sum(img_outer_iris);
 				const cv::Scalar inner_iris_sum = cv::sum(img_inner_iris);
 				/// the inner region should be darker than the outer
-				if( ( inner_iris_sum(0)*1.5 < outer_iris_sum(0) ) &&
+				if( ( inner_iris_sum(0) < outer_iris_sum(0) ) &&
 					( abs(angle)>kAngleThreshold )
 					)
 				{

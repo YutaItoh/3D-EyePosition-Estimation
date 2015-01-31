@@ -138,6 +138,33 @@ bool PupilTracker::findPupilEllipse(
 	// |                         |
 	// |_________________________|
 	//
+	
+#if 1 // Remove highlight
+	cv::imshow("PupilTrackerInput0",m);
+	cv::Scalar meanVal = cv::mean( mEye ); // costly...
+	meanVal *=1.2;
+	if(meanVal.val[0]>255.0) meanVal.val[0] = 230;
+	const uchar kThreshold=(uchar) meanVal.val[0];
+//	cv::threshold(mEye,mEye,230,255,cv::THRESH_TOZERO_INV);
+	for(int r=0;r<mEye.rows;r++){
+		uchar fill_color = mEye.at<uchar>(r,0);
+		if(fill_color>kThreshold) fill_color=kThreshold;
+		for(int c=0;c<mEye.cols;c++){
+			if(mEye.at<uchar>(r,c)>kThreshold){
+				mEye.at<uchar>(r,c)=fill_color;
+			}else{
+				fill_color=mEye.at<uchar>(r,c);
+			}
+		}
+	}
+#endif
+
+	
+	cv::imshow("PupilTrackerInput1",mEye);
+	cv::Mat element(3,3,CV_8U, cv::Scalar::all(255));
+//	cv::morphologyEx(mEye, mEye, cv::MORPH_CLOSE, element, cv::Point(-1,-1), 3);
+//	cv::imshow("PupilTrackerInput2",mEye);
+	cv::waitKey(-1);
 
 	cv::Mat_<int32_t> mEyeIntegral;
 	int padding = 2*params.Radius_Max;
