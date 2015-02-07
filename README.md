@@ -6,16 +6,15 @@ An eye-tracking software designed for  color, close-up eye images
 This program computes an eyeball position in 3D given a calibrated camera image.
 
 ## Why eye(-pose) tracker?
-With the growing market of Virtual-/Augmented-Reality (VR/AR) headsets such as Oculus Rift and Google Glass, 
-the eye-tracking technology has become not only a key user interface, but also the prime technique to realize more realistic, emmersive VR experieces.
+With the growing market of Virtual-/Augmented-Reality (VR/AR) headsets such as Oculus Rift, Google Glass, and Microsoft HoloLens, the eye-tracking technology has become not only a key user interface, but also the prime technique to realize more realistic, emmersive VR/AR experieces.
 
 Since I am working on this field, and needed to develop an eye-position tracking software for HMD calibration, 
 I decided to share my preliminary, yet working, code with you.
 
-A particular feature of the current implementation
+A particular feature of the current implementation is that it estimates the center position (and 2-DoF orientation) of an eyeball.
 
 ## What it does:
-Given a close-up image of an eye, this program estimates 
+Given a closeup image of an eye, this program estimates 
 the 3D potision of the center and the oriation (two rotation axes) of an eye ball:
 ![](https://cloud.githubusercontent.com/assets/7195124/5328538/902631b8-7d83-11e4-95bf-192203a4115c.png)
 (Left) A detected limbus (iris) area, (Middle left) 2D iris ellipse candidates from extracted edge segments, (Middle right) Best-fit 2D iris ellipse, (Right) Final 3D eyeball pose(s) estimated from the 2D ellipse.
