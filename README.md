@@ -11,7 +11,7 @@ With the growing market of Virtual-/Augmented-Reality (VR/AR) headsets such as O
 Since I am working on this field, and needed to develop an eye-position tracking software for HMD calibration, 
 I decided to share my preliminary, yet working, code with you.
 
-A particular feature of the current implementation is that it estimates the center position (and 2-DoF orientation) of an eyeball.
+A particular feature of the current implementation is that it estimates the center position (and 2-DoF orientation) of an eyeball in 3D.
 
 ## What it does:
 Given a closeup image of an eye, this program estimates 
