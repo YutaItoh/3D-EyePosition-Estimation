@@ -133,28 +133,28 @@ bool IrisDetector::DetectIrisRegion(const cv::Mat &src, cv::Mat &src_eye,
 
 	//  ___________________________________
 	// |src                                 | 
-	// |     |  |                   Å@Å@Å@  |
-	// |                            Å@Å@Å@  |
-	// |     |  |                   Å@Å@Å@  |
-	// |       clip_topleft         Å@Å@Å@  |
-	// | _  _|/_|____________            Å@ |
-	// |     |src_clipped    |       Å@Å@ Å@|
-	// |     |  |            |       Å@Å@ Å@|
+	// |     |  |                   „ÄÄ„ÄÄ„ÄÄ  |
+	// |                            „ÄÄ„ÄÄ„ÄÄ  |
+	// |     |  |                   „ÄÄ„ÄÄ„ÄÄ  |
+	// |       clip_topleft         „ÄÄ„ÄÄ„ÄÄ  |
+	// | _  _|/_|____________            „ÄÄ |
+	// |     |src_clipped    |       „ÄÄ„ÄÄ „ÄÄ|
+	// |     |  |            |       „ÄÄ„ÄÄ „ÄÄ|
 	// |     |   iris_roi_offset            |
-	// | _ _ |_ |/________   |    Å@Å@      |
-	// |     |  |src_eye  |  |    Å@Å@      |
-	// |     |  |         |  |    Å@Å@      |
-	// |     |  |    *    |  |         Å@ Å@|
+	// | _ _ |_ |/________   |    „ÄÄ„ÄÄ      |
+	// |     |  |src_eye  |  |    „ÄÄ„ÄÄ      |
+	// |     |  |         |  |    „ÄÄ„ÄÄ      |
+	// |     |  |    *    |  |         „ÄÄ „ÄÄ|
 	// |     |  |   iris_pos_in_roi in src_eye or iris_pos_in_src in src
 	// |     |  |        |   |              |
-	// |     |  |________|   |          Å@Å@|
+	// |     |  |________|   |          „ÄÄ„ÄÄ|
 	// |     |               | clip_buttomright (NOTE: this is the distance FROM the "buttom-right" corner)
 	// |     |______________ |/_ _ _ _ _ _ _|
 	// |                     |              |
-	// |                             Å@Å@Å@ |
-	// |                     |       Å@Å@Å@ |
-	// |                             Å@Å@Å@ |
-	// |                     |       Å@Å@Å@ | buttom-right corner
+	// |                             „ÄÄ„ÄÄ„ÄÄ |
+	// |                     |       „ÄÄ„ÄÄ„ÄÄ |
+	// |                             „ÄÄ„ÄÄ„ÄÄ |
+	// |                     |       „ÄÄ„ÄÄ„ÄÄ | buttom-right corner
 	// |____________________________________|/
 	//
 	/// Raw detected iris center and ROI
@@ -684,7 +684,7 @@ bool IrisDetector::FindLimbus( const cv::Mat &src_img, const cv::Point2f &iris_p
 			const cv::Point2f &vec=edge_lists_float_all[i];
 			const int x = vec.x;
 			const int y = vec.y;
-			if( 0<=x && x<src_with_ellipses.cols && 0<=y && x<src_with_ellipses.rows ){
+			if( 0<=x && x<src_with_ellipses.cols && 0<=y && y<src_with_ellipses.rows ){
 				src_with_ellipses.at<cv::Vec3b>(y,x)=tmp;
 			}
 		}
@@ -815,7 +815,7 @@ bool IrisDetector::FindLimbus( const cv::Mat &src_img, const cv::Point2f &iris_p
 //
 // cv::Mat img;
 //int n_lines;
-//double* lines;Å@
+//double* lines;„ÄÄ
 //void change_th_lsd(int nfa, void* dummy)
 //{
 //    cv::Mat result = img.clone();
