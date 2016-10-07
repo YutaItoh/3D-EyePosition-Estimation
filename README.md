@@ -1,3 +1,6 @@
+
+***NOTE: A new 3D eye tracking code is available on*** [***my new project***](https://github.com/YutaItoh/3D-Eye-Tracker/blob/master/README.md)
+
 3D-EyePosition-Estimation
 =========================
 
